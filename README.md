@@ -1,2 +1,2 @@
-# cifar-superpixel
-AAAA
+# mnist-superpixel
+MWP for superpixel GNN classification
