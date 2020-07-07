@@ -94,7 +94,7 @@ def test_model(
     test_dset = CIFAR10(dset_folder, download=True, train=False, transform=util.get_graph_from_image)
     dset_test_loader = torch.utils.data.DataLoader(test_dset, batch_size=1, shuffle=True, num_workers=2, collate_fn=util.batch_graphs,)
     
-    test_accs = util.test(best_model, dset_test_loader, list(range(len(test_labels))), use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
+    test_accs = util.test(best_model, dset_test_loader, use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
     test_acc = 100*np.mean(test_accs)
     print("TEST RESULTS: {acc:.2f}%".format(acc=test_acc))
 
