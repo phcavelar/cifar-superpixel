@@ -23,10 +23,11 @@ def train_model(
         batch_size,
         use_cuda,
         dset_folder,
+        supersegment=False,
         disable_tqdm=False,
         ):
     print("Reading dataset")
-    dset = CIFAR10(dset_folder, download=True, train=True, transform=util.get_supersegmented_image)
+    dset = CIFAR10(dset_folder, download=True, train=True, transform=(util.get_supersegmented_image if supersegment else lambda x:x),)
 
     valid_split = 0.1
     valid_len = int(len(dset) * valid_split)
@@ -84,6 +85,7 @@ def train_model(
 def test_model(
         use_cuda,
         dset_folder,
+        supersegment=False,
         disable_tqdm=False,
         ):
     best_model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11', pretrained=False)
@@ -91,7 +93,7 @@ def test_model(
     if use_cuda:
         best_model = best_model.cuda()
     
-    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=util.get_supersegmented_image)
+    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=(util.get_supersegmented_image if supersegment else lambda x:x),)
     dset_test_loader = torch.utils.data.DataLoader(test_dset, batch_size=1, shuffle=True, num_workers=2,)
     
     test_accs = util.test_baseline(best_model, dset_test_loader, use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
@@ -107,6 +109,7 @@ def main(
         batch_size:int=32,
         use_cuda:bool=True,
         disable_tqdm:bool=False,
+        disable_supersegment:bool=False,
         dset_folder:str = "./cifar10"
         ):
     use_cuda = use_cuda and torch.cuda.is_available()
@@ -116,6 +119,7 @@ def main(
                 batch_size = batch_size,
                 use_cuda = use_cuda,
                 dset_folder = dset_folder,
+                supersegment = not disable_supersegment,
                 disable_tqdm = disable_tqdm,
                 )
     if test:
@@ -123,6 +127,8 @@ def main(
                 use_cuda=use_cuda,
                 dset_folder = dset_folder,
                 disable_tqdm = disable_tqdm,
+                supersegment = not disable_supersegment,
+                not disable_supersegment,
                 )
 
 if __name__ == "__main__":
