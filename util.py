@@ -25,6 +25,19 @@ NP_TORCH_LONG_DTYPE = np.int64
 NUM_FEATURES = 5
 NUM_CLASSES = 10
 
+# General utils
+
+def save_model(fname, model):
+    torch.save(model.state_dict(),"{fname}.pt".format(fname=fname))
+    
+def load_model(fname, model):
+    model.load_state_dict(torch.load("{fname}.pt".format(fname=fname)))
+
+def to_cuda(x):
+    return x.cuda()
+
+# Superpixel utils
+
 def plot_image(image,desired_nodes=75,save_in=None):
     # show the output of SLIC
     fig = plt.figure("Image")
@@ -77,6 +90,8 @@ def plot_graph_from_image(image,desired_nodes=75,save_in=None):
     else:
         plt.savefig(save_in,bbox_inches="tight")
     plt.close()
+
+# GAT utils
 
 def get_graph_from_image(PIL_image,desired_nodes=75):
     # load the image and convert it to a floating point data type
@@ -216,15 +231,6 @@ def batch_graphs(batch):
         Mgraph.astype(NP_TORCH_FLOAT_DTYPE),
         labels
     )
-    
-def save_model(fname, model):
-    torch.save(model.state_dict(),"{fname}.pt".format(fname=fname))
-    
-def load_model(fname, model):
-    model.load_state_dict(torch.load("{fname}.pt".format(fname=fname)))
-
-def to_cuda(x):
-    return x.cuda()
 
 def train(model, optimiser, dataset_loader, use_cuda, batch_size=1, disable_tqdm=False, profile=False):
     train_losses = []
@@ -296,6 +302,114 @@ def test(model, dataset_loader, use_cuda, desc="Test ", disable_tqdm=False):
             
             test_accs.append(acc)
     return test_accs
+    
+# Baseline utils
+    
+def get_supersegmented_image(PIL_image,desired_nodes=75):
+    # load the image and convert it to a floating point data type
+    image = np.asarray(PIL_image).copy()
+    segments = slic(image, n_segments=desired_nodes, slic_zero = True)
+    image = image.astype(NP_TORCH_FLOAT_DTYPE)/256.
+    asegments = np.array(segments)
+    num_segments = np.max(asegments)+1
+    rgb_lists = [ [] for i in range(num_segments) ]
+
+    height = image.shape[0]
+    width = image.shape[1]
+    for y in range(height):
+        for x in range(width):
+            node = asegments[y,x]
+            rgb = image[y,x,:]
+            rgb_lists[node].append(rgb)
+        #end for
+    #end for
+    
+    rgb_means = [np.mean(rgb_list, axis=0) for rgb_list in rgb_lists]
+    
+    for y in range(height):
+        for x in range(width):
+            node = asegments[y,x]
+            rgb = rgb_means[node]
+            image[y,x,:] = rgb[:]
+    
+    return image.transpose([2,0,1])
+
+def train_baseline(model, optimiser, dataset_loader, use_cuda, batch_size=1, disable_tqdm=False, profile=False):
+    train_losses = []
+    train_accs = []
+    for b in tqdm(dataset_loader, desc="Instances ", disable=disable_tqdm):
+        ta = time.time()
+        optimiser.zero_grad()
+        tb = time.time()
+        x,np_labels = b
+        x = np.stack(x)
+        np_labels = np_labels.detach().cpu().numpy()
+        tc = time.time()
+        x,pyt_labels = map(torch.from_numpy,(x,np_labels))
+        td = time.time()
+        if use_cuda:
+            x,pyt_labels = map(to_cuda,(x,pyt_labels))
+        te = time.time()
+        y = model(x)
+        tf = time.time()
+        loss = F.cross_entropy(input=y,target=pyt_labels)
+        
+        pred = torch.argmax(y,dim=1).detach().cpu().numpy()
+        acc = np.sum((pred==np_labels).astype(float)) / pyt_labels.shape[0]
+        mode = sp.stats.mode(pred)
+        tg = time.time()
+        
+        tqdm.write(
+              "{loss:.4f}\t{acc:.2f}%\t{mode} (x{modecount})".format(
+                  loss=loss.item(),
+                  acc=100*acc,
+                  mode=mode[0][0],
+                  modecount=mode[1][0],
+              )
+        )
+        
+        th = time.time()
+        loss.backward()
+        optimiser.step()
+        
+        train_losses.append(loss.detach().cpu().item())
+        train_accs.append(acc)
+        if profile:
+            ti = time.time()
+            
+            tt = ti-ta
+            tqdm.write("zg {zg:.2f}% bg {bg:.2f}% tt {tt:.2f}% tc {tc:.2f}% mo {mo:.2f}% me {me:.2f}% bk {bk:.2f}%".format(
+                    zg=100*(tb-ta)/tt,
+                    bg=100*(tc-tb)/tt,
+                    tt=100*(td-tc)/tt,
+                    tc=100*(te-td)/tt,
+                    mo=100*(tf-te)/tt,
+                    me=100*(tg-tf)/tt,
+                    bk=100*(ti-th)/tt,
+                    ))
+        
+    return train_losses, train_accs
+
+def test_baseline(model, dataset_loader, use_cuda, desc="Test ", disable_tqdm=False):
+    test_accs = []
+    for b in tqdm(dataset_loader, desc=desc, disable=disable_tqdm):
+        with torch.no_grad():
+            x,np_labels = b
+            x = np.stack(x)
+            np_labels = np_labels.detach().cpu().numpy()
+            x,pyt_labels = map(torch.from_numpy,(x,np_labels))
+            if use_cuda:
+                x,pyt_labels = map(to_cuda,(x,pyt_labels))
+            
+            y = model(x)
+            
+            pred = torch.argmax(y,dim=1).detach().cpu().numpy()
+            acc = np.sum((pred==np_labels).astype(float)) / np_labels.shape[0]
+            
+            test_accs.append(acc)
+    return test_accs
+    
+# Main functions
 
 def main_plot(dset_folder,save):
     dset = MNIST(dset_folder,download=True)

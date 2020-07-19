@@ -26,7 +26,7 @@ def train_model(
         disable_tqdm=False,
         ):
     print("Reading dataset")
-    dset = CIFAR10(dset_folder, download=True, train=True, transform=util.get_graph_from_image)
+    dset = CIFAR10(dset_folder, download=True, train=True, transform=util.get_supersegmented_image)
 
     valid_split = 0.1
     valid_len = int(len(dset) * valid_split)
@@ -34,13 +34,11 @@ def train_model(
     dset_train, dset_valid = torch.utils.data.random_split(dset, [train_len,valid_len])
 
     dset_train_loader, dset_valid_loader = map(
-        lambda ds: torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=2, collate_fn=util.batch_graphs,),
+        lambda ds: torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=2,),
         [dset_train,dset_valid]
     )
     
-    model_args = []
-    model_kwargs = {}
-    model = GAT_MNIST(num_features=util.NUM_FEATURES, num_classes=util.NUM_CLASSES)
+    model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11', pretrained=False)
     if use_cuda:
         model = model.cuda()
     
@@ -53,11 +51,11 @@ def train_model(
     last_epoch_train_acc = 0.
     last_epoch_valid_acc = 0.
     
-    valid_log_file = open("log.valid", "w")
+    valid_log_file = open("log-baseline.valid", "w")
     interrupted = False
     for e in tqdm(range(epochs), total=epochs, desc="Epoch ", disable=disable_tqdm,):
         try:
-            train_losses, train_accs = util.train(model, opt, dset_train_loader, use_cuda=use_cuda, disable_tqdm=disable_tqdm,)
+            train_losses, train_accs = util.train_baseline(model, opt, dset_train_loader, use_cuda=use_cuda, disable_tqdm=disable_tqdm,)
             
             last_epoch_train_loss = np.mean(train_losses)
             last_epoch_train_acc = 100*np.mean(train_accs)
@@ -65,7 +63,7 @@ def train_model(
             print("Training interrupted!")
             interrupted = True
         
-        valid_accs = util.test(model, dset_valid_loader, use_cuda, desc="Validation ", disable_tqdm=disable_tqdm,)
+        valid_accs = util.test_baseline(model, dset_valid_loader, use_cuda, desc="Validation ", disable_tqdm=disable_tqdm,)
                 
         last_epoch_valid_acc = 100*np.mean(valid_accs)
         
@@ -79,8 +77,8 @@ def train_model(
         if interrupted:
             break
     
-    util.save_model("best",best_model)
-    util.save_model("last",model)
+    util.save_model("baseline_best",best_model)
+    util.save_model("baseline_last",model)
 
 
 def test_model(
@@ -88,15 +86,15 @@ def test_model(
         dset_folder,
         disable_tqdm=False,
         ):
-    best_model = GAT_MNIST(num_features=util.NUM_FEATURES, num_classes=util.NUM_CLASSES)
-    util.load_model("best",best_model)
+    best_model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11', pretrained=False)
+    util.load_model("baseline_best",best_model)
     if use_cuda:
         best_model = best_model.cuda()
     
-    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=util.get_graph_from_image)
-    dset_test_loader = torch.utils.data.DataLoader(test_dset, batch_size=1, shuffle=True, num_workers=2, collate_fn=util.batch_graphs,)
+    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=util.get_supersegmented_image)
+    dset_test_loader = torch.utils.data.DataLoader(test_dset, batch_size=1, shuffle=True, num_workers=2,)
     
-    test_accs = util.test(best_model, dset_test_loader, use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
+    test_accs = util.test_baseline(best_model, dset_test_loader, use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
     test_acc = 100*np.mean(test_accs)
     print("TEST RESULTS: {acc:.2f}%".format(acc=test_acc))
 
