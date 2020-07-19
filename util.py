@@ -305,6 +305,11 @@ def test(model, dataset_loader, use_cuda, desc="Test ", disable_tqdm=False):
     
 # Baseline utils
     
+def get_image(PIL_image,desired_nodes=75):
+    image = np.asarray(PIL_image).copy()
+    image = image.astype(NP_TORCH_FLOAT_DTYPE)/256.
+    return image.transpose([2,0,1])
+
 def get_supersegmented_image(PIL_image,desired_nodes=75):
     # load the image and convert it to a floating point data type
     image = np.asarray(PIL_image).copy()

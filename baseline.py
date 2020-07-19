@@ -27,7 +27,7 @@ def train_model(
         disable_tqdm=False,
         ):
     print("Reading dataset")
-    dset = CIFAR10(dset_folder, download=True, train=True, transform=(util.get_supersegmented_image if supersegment else lambda x:x),)
+    dset = CIFAR10(dset_folder, download=True, train=True, transform=(util.get_supersegmented_image if supersegment else util.get_image),)
 
     valid_split = 0.1
     valid_len = int(len(dset) * valid_split)
@@ -39,7 +39,7 @@ def train_model(
         [dset_train,dset_valid]
     )
     
-    model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11', pretrained=False)
+    model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11_bn', pretrained=False)
     if use_cuda:
         model = model.cuda()
     
@@ -88,12 +88,12 @@ def test_model(
         supersegment=False,
         disable_tqdm=False,
         ):
-    best_model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11', pretrained=False)
+    best_model = torch.hub.load('pytorch/vision:v0.6.0', 'vgg11_bn', pretrained=False)
     util.load_model("baseline_best",best_model)
     if use_cuda:
         best_model = best_model.cuda()
     
-    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=(util.get_supersegmented_image if supersegment else lambda x:x),)
+    test_dset = CIFAR10(dset_folder, download=True, train=False, transform=(util.get_supersegmented_image if supersegment else util.get_image),)
     dset_test_loader = torch.utils.data.DataLoader(test_dset, batch_size=1, shuffle=True, num_workers=2,)
     
     test_accs = util.test_baseline(best_model, dset_test_loader, use_cuda, desc="Test ", disable_tqdm=disable_tqdm,)
@@ -126,9 +126,8 @@ def main(
         test_model(
                 use_cuda=use_cuda,
                 dset_folder = dset_folder,
-                disable_tqdm = disable_tqdm,
                 supersegment = not disable_supersegment,
-                not disable_supersegment,
+                disable_tqdm = disable_tqdm,
                 )
 
 if __name__ == "__main__":
