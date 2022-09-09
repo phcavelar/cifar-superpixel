@@ -1,0 +1,18 @@
+name: spixel
+channels:
+  - defaults
+dependencies:
+  - scikit-image=0.19
+  - fire=0.4
+  - tqdm=4.61
+  - pytorch=1.12
+  - torchvision=0.13
+  - cpuonly=2.0
+  - numpy=1.23
+  - scipy=1.9
+  - python=3.8
+  - matplotlib=3.5
+  - ca-certificates
+  - certifi
+  - openssl
+prefix: /home/phcavelar/miniconda3/envs/spixel
