@@ -98,10 +98,9 @@ def get_graph_from_image(PIL_image,desired_nodes=75):
     image = np.asarray(PIL_image)
     #print(image.shape)
     #exit()
-    segments = slic(image, n_segments=desired_nodes, slic_zero = True)
-    asegments = np.array(segments)
+    segments = -1+slic(image, n_segments=desired_nodes, slic_zero = True)
 
-    num_nodes = np.max(asegments)
+    num_nodes = np.max(segments)
     nodes = {
         node: {
             "rgb_list": [],
@@ -113,7 +112,7 @@ def get_graph_from_image(PIL_image,desired_nodes=75):
     width = image.shape[1]
     for y in range(height):
         for x in range(width):
-            node = asegments[y,x]
+            node = segments[y,x]
             rgb = image[y,x,:]
             pos = np.array([float(x)/width,float(y)/height])
             nodes[node]["rgb_list"].append(rgb)
